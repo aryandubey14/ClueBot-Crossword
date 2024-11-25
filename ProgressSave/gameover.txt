@@ -1,0 +1,271 @@
+#include <freeglut.h>
+#include <string>
+#include <cmath>
+#include <vector>
+
+// Window dimensions
+const float M_PI = 3.14;
+const int WINDOW_WIDTH = 800;
+const int WINDOW_HEIGHT = 600;
+
+// Button dimensions and position
+const float BUTTON_WIDTH = 200.0f;
+const float BUTTON_HEIGHT = 60.0f;
+const float BUTTON_X = (WINDOW_WIDTH - BUTTON_WIDTH) / 2;
+const float BUTTON_Y = WINDOW_HEIGHT / 2 - BUTTON_HEIGHT / 2;
+
+// Animation variables
+float fadeAlpha = 0.0f;
+float buttonScale = 1.0f;
+float particleAlpha = 1.0f;
+bool isGameOver = true;
+bool isMouseOverButton = false;
+
+// Particle system
+struct Particle {
+    float x, y;
+    float speedX, speedY;
+    float alpha;
+    float size;
+    float rotation;
+};
+
+std::vector<Particle> particles;
+const int NUM_PARTICLES = 50;
+
+// Colors (RGBA)
+const float BG_COLOR[4] = { 0.1f, 0.1f, 0.15f, 1.0f };
+const float COLOR_BUTTON_NORMAL[] = { 0.2f, 0.6f, 1.0f, 1.0f };
+const float COLOR_BUTTON_HOVER[] = { 0.3f, 0.7f, 1.0f, 1.0f };
+const float COLOR_TEXT[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+// Animation timing
+float currentTime = 0.0f;
+const float FADE_DURATION = 1.0f;
+const float BUTTON_SCALE_SPEED = 0.3f;
+
+void initParticles() {
+    particles.clear();
+    for (int i = 0; i < NUM_PARTICLES; i++) {
+        Particle p;
+        p.x = WINDOW_WIDTH / 2 + (rand() % 200 - 100);
+        p.y = WINDOW_HEIGHT / 2 + (rand() % 200 - 100);
+        p.speedX = (rand() % 100 - 50) / 50.0f;
+        p.speedY = (rand() % 100 - 50) / 50.0f;
+        p.alpha = 1.0f;
+        p.size = rand() % 5 + 2;
+        p.rotation = rand() % 360;
+        particles.push_back(p);
+    }
+}
+
+// Function to draw a rounded rectangle
+void drawRoundedRect(float x, float y, float width, float height, float radius) {
+    const int segments = 20;
+
+    glBegin(GL_POLYGON);
+    // Top-left corner
+    for (int i = 90; i <= 180; i += 90 / segments) {
+        float angle = i * M_PI / 180;
+        glVertex2f(x + radius + radius * cos(angle),
+            y + height - radius + radius * sin(angle));
+    }
+    // Top-right corner
+    for (int i = 180; i <= 270; i += 90 / segments) {
+        float angle = i * M_PI / 180;
+        glVertex2f(x + width - radius + radius * cos(angle),
+            y + height - radius + radius * sin(angle));
+    }
+    // Bottom-right corner
+    for (int i = 270; i <= 360; i += 90 / segments) {
+        float angle = i * M_PI / 180;
+        glVertex2f(x + width - radius + radius * cos(angle),
+            y + radius + radius * sin(angle));
+    }
+    // Bottom-left corner
+    for (int i = 0; i <= 90; i += 90 / segments) {
+        float angle = i * M_PI / 180;
+        glVertex2f(x + radius + radius * cos(angle),
+            y + radius + radius * sin(angle));
+    }
+    glEnd();
+}
+
+// Function to render text with shadow
+void renderTextWithShadow(float x, float y, const std::string& text, float scale = 1.0f) {
+    // Draw shadow
+    glColor4f(0.0f, 0.0f, 0.0f, 0.5f * fadeAlpha);
+    glPushMatrix();
+    glTranslatef(x + 2, y - 2, 0);
+    glScalef(scale, scale, 1.0f);
+    for (const char& c : text) {
+        glutStrokeCharacter(GLUT_STROKE_MONO_ROMAN, c);
+    }
+    glPopMatrix();
+
+    // Draw main text
+    glColor4f(COLOR_TEXT[0], COLOR_TEXT[1], COLOR_TEXT[2], fadeAlpha);
+    glPushMatrix();
+    glTranslatef(x, y, 0);
+    glScalef(scale, scale, 1.0f);
+    for (const char& c : text) {
+        glutStrokeCharacter(GLUT_STROKE_MONO_ROMAN, c);
+    }
+    glPopMatrix();
+}
+
+void updateParticles() {
+    for (auto& p : particles) {
+        p.x += p.speedX;
+        p.y += p.speedY;
+        p.alpha -= 0.001f;
+        p.rotation += 1.0f;
+        if (p.alpha <= 0) {
+            p.alpha = 1.0f;
+            p.x = WINDOW_WIDTH / 2;
+            p.y = WINDOW_HEIGHT / 2;
+        }
+    }
+}
+
+void display() {
+    glClear(GL_COLOR_BUFFER_BIT);
+    glLoadIdentity();
+
+    // Set background color
+    glClearColor(BG_COLOR[0], BG_COLOR[1], BG_COLOR[2], BG_COLOR[3]);
+
+    // Enable blending for transparency
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // Draw particles
+    for (const auto& p : particles) {
+        glPushMatrix();
+        glTranslatef(p.x, p.y, 0);
+        glRotatef(p.rotation, 0, 0, 1);
+        glColor4f(1.0f, 1.0f, 1.0f, p.alpha * 0.3f);
+        glBegin(GL_QUADS);
+        glVertex2f(-p.size, -p.size);
+        glVertex2f(p.size, -p.size);
+        glVertex2f(p.size, p.size);
+        glVertex2f(-p.size, p.size);
+        glEnd();
+        glPopMatrix();
+    }
+
+    // Draw "GAME OVER" text centered and higher up without score
+    glPushMatrix();
+    renderTextWithShadow(WINDOW_WIDTH / 2 - 200, WINDOW_HEIGHT - 200, "GAME OVER", 0.5f);
+    glPopMatrix();
+
+    // Draw restart button with scale animation
+    glPushMatrix();
+    glTranslatef(BUTTON_X + BUTTON_WIDTH / 2, BUTTON_Y + BUTTON_HEIGHT / 2, 0);
+    glScalef(buttonScale, buttonScale, 1.0f);
+    glTranslatef(-(BUTTON_X + BUTTON_WIDTH / 2), -(BUTTON_Y + BUTTON_HEIGHT / 2), 0);
+
+    // Button background with gradient
+    if (isMouseOverButton) {
+        glColor4f(COLOR_BUTTON_HOVER[0], COLOR_BUTTON_HOVER[1], COLOR_BUTTON_HOVER[2], fadeAlpha);
+    }
+    else {
+        glColor4f(COLOR_BUTTON_NORMAL[0], COLOR_BUTTON_NORMAL[1], COLOR_BUTTON_NORMAL[2], fadeAlpha);
+    }
+
+    drawRoundedRect(BUTTON_X, BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT, 10.0f);
+
+    // Button text
+    std::string buttonText = "RESTART";
+    float buttonTextX = BUTTON_X + BUTTON_WIDTH / 2 - 70;
+    float buttonTextY = BUTTON_Y + BUTTON_HEIGHT / 2 + 10;
+    renderTextWithShadow(buttonTextX, buttonTextY, buttonText, 0.2f);
+
+    glPopMatrix();
+
+    glutSwapBuffers();
+}
+
+void update(int value) {
+    currentTime += 0.016f;  // Approximately 60 FPS
+
+    // Update fade in animation
+    if (fadeAlpha < 1.0f) {
+        fadeAlpha += 0.016f / FADE_DURATION;
+        if (fadeAlpha > 1.0f) fadeAlpha = 1.0f;
+    }
+
+    // Update button scale animation
+    if (isMouseOverButton) {
+        buttonScale += (1.1f - buttonScale) * BUTTON_SCALE_SPEED;
+    }
+    else {
+        buttonScale += (1.0f - buttonScale) * BUTTON_SCALE_SPEED;
+    }
+
+    updateParticles();
+
+    glutPostRedisplay();
+    glutTimerFunc(16, update, 0);  // Schedule next update
+}
+
+bool checkMouseOverButton(int x, int y) {
+    float glX = x;
+    float glY = WINDOW_HEIGHT - y;
+
+    return (glX >= BUTTON_X && glX <= BUTTON_X + BUTTON_WIDTH &&
+        glY >= BUTTON_Y && glY <= BUTTON_Y + BUTTON_HEIGHT);
+}
+
+void mouseMotion(int x, int y) {
+    bool wasMouseOverButton = isMouseOverButton;
+    isMouseOverButton = checkMouseOverButton(x, y);
+
+    if (wasMouseOverButton != isMouseOverButton) {
+        glutPostRedisplay();
+    }
+}
+
+void mouseClick(int button, int state, int x, int y) {
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+        if (checkMouseOverButton(x, y)) {
+            // Handle restart button click
+            initParticles();  // Reset particles
+            fadeAlpha = 0.0f;  // Reset fade animation
+            printf("Restart button clicked!\n");
+        }
+    }
+}
+
+void reshape(int w, int h) {
+    glViewport(0, 0, w, h);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(0, w, 0, h);
+    glMatrixMode(GL_MODELVIEW);
+}
+
+int main(int argc, char** argv) {
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_ALPHA);
+    glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
+    glutCreateWindow("Game Over Screen");
+
+    // Initialize particles
+    initParticles();
+
+    // Register callbacks
+    glutDisplayFunc(display);
+    glutReshapeFunc(reshape);
+    glutPassiveMotionFunc(mouseMotion);
+    glutMouseFunc(mouseClick);
+    glutTimerFunc(0, update, 0);
+
+    // Set up projection
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT);
+
+    glutMainLoop();
+    return 0;
+}

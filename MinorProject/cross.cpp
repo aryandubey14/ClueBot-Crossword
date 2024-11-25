@@ -5,12 +5,17 @@
 #include <mmsystem.h> 
 #include <string>
 #pragma comment(lib, "winmm.lib") 
+#include <irrKlang.h>
+
+using namespace irrklang;
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "Header1.h"  
+#include "Header1.h" 
+
+ISoundEngine* engine; // Declare the sound engine globally
 
 
-enum class GameState { INTRO, GAME, HOME };
+enum class GameState { INTRO, GAME, HOME ,SIXTEEN , TWENTY, HTP };
     
 class CrosswordGame {
 public:
@@ -19,11 +24,11 @@ public:
     void display();
     void handleMouse(int button, int state, int x, int y);
     void update();
-    void playBackgroundMusic(const char* filename);
 
 private:
     GLuint loadTexture(const char* filename);
     void drawBackground();
+    void drawMap();
     void drawButtonBackground(); 
     void drawPlayButton();
     void drawHTPButton();
@@ -47,8 +52,14 @@ private:
     const int verticalOffset = -70;
     const int HTPverticaloffset = 20;
     const int exitButtonSize = 50; 
+    const int MapWidth = 700;
+    const int MapHeight = 850;
 
-    int buttonX, buttonY, buttonWidth, buttonHeight;
+    int easyButtonX, easyButtonY, easyButtonWidth, easyButtonHeight;
+    int hardButtonX, hardButtonY, hardButtonWidth, hardButtonHeight;
+
+
+    int buttonX, buttonY, buttonWidth, buttonHeight, buttonHY ;
     GLuint backgroundTexture;
     GLuint playPropTexture;
     GLuint buttonTexture; 
@@ -62,6 +73,7 @@ private:
     GLuint settingsPropTexture;
     GLuint EzPropTexture;
     GLuint hardButtonTexture;
+    GLuint MapTexture;
 
 
     GameState currentState;
@@ -77,12 +89,7 @@ CrosswordGame::CrosswordGame(int width, int height)
     
     buttonX = (windowWidth - buttonWidth) / 2;
     buttonY = (windowHeight - buttonHeight) / 2 - 280;
-
-}
-
-void CrosswordGame::playBackgroundMusic(const char* filename) {
-    std::wstring wideFilename = std::wstring(filename, filename + strlen(filename));
-    PlaySound(wideFilename.c_str(), NULL, SND_FILENAME | SND_ASYNC | SND_LOOP);
+    buttonHY = (windowHeight - buttonHeight) / 2 - 450;
 }
 
 // Initialize OpenGL settings
@@ -100,14 +107,15 @@ void CrosswordGame::initOpenGL() {
     //propTexture2 = loadTexture("D:/Minor_Project/Props/p1.png"); // Load the new prop texture
     newPropTexture = loadTexture("D:/Minor_Project/Props/j1.png"); 
     topLeftPropTexture = loadTexture("D:/Minor_Project/Props/y1.png");
-    settingsPropTexture = loadTexture("D:/Minor_Project/Props/z1-removebg-preview.png");
-    EzPropTexture = loadTexture("D:/Minor_Project/Props/ez.png");
-    hardButtonTexture = loadTexture("D:/Minor_Project/Props/hard.png");
+    settingsPropTexture = loadTexture("D:/Minor_Project/Props/u1-removebg-preview.png");
+    EzPropTexture = loadTexture("D:/Minor_Project/Props/ert.png");
+    MapTexture = loadTexture("D:/Minor_Project/Props/dfr.png");
+    hardButtonTexture = loadTexture("D:/Minor_Project/Props/hardd.png");
 
 
     if (!backgroundTexture || !buttonTexture || !buttonBackgroundTexture || !HTPButtonTexture ||
         !exitButtonTexture || !playPropTexture || !propTexture || !newPropTexture || !topLeftPropTexture ||
-        !settingsPropTexture) {
+        !settingsPropTexture || !hardButtonTexture || !MapTexture) {
         std::cerr << "Failed to load textures." << std::endl;
         exit(1);
     }
@@ -181,6 +189,33 @@ void CrosswordGame::drawButtonBackground() {
     glTexCoord2f(0.0f, 0.0f);
     glVertex2f((adjustedButtonX - (buttonBackgroundWidth - buttonWidth) / 2) / (windowWidth / 2.0) - 1.0,
         (adjustedButtonY + buttonBackgroundHeight) / (windowHeight / 2.0) - 1.0);
+    glEnd();
+
+    glDisable(GL_TEXTURE_2D);
+}
+
+void CrosswordGame::drawMap() {
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, MapTexture);
+
+
+    float adjustedButtonX = buttonX - Horizontaloffset;
+    float adjustedButtonY = buttonY + verticalOffset;
+
+
+    glBegin(GL_QUADS);
+    glTexCoord2f(0.0f, 1.0f);
+    glVertex2f((adjustedButtonX - (MapWidth - buttonWidth) / 2) / (windowWidth / 2.0) - 1.0,
+        adjustedButtonY / (windowHeight / 2.0) - 1.0);
+    glTexCoord2f(1.0f, 1.0f);
+    glVertex2f((adjustedButtonX + MapWidth) / (windowWidth / 2.0) - 1.0,
+        adjustedButtonY / (windowHeight / 2.0) - 1.0);
+    glTexCoord2f(1.0f, 0.0f);
+    glVertex2f((adjustedButtonX + MapWidth) / (windowWidth / 2.0) - 1.0,
+        (adjustedButtonY + MapHeight) / (windowHeight / 2.0) - 1.0);
+    glTexCoord2f(0.0f, 0.0f);
+    glVertex2f((adjustedButtonX - (MapWidth - buttonWidth) / 2) / (windowWidth / 2.0) - 1.0,
+        (adjustedButtonY + MapHeight) / (windowHeight / 2.0) - 1.0);
     glEnd();
 
     glDisable(GL_TEXTURE_2D);
@@ -331,8 +366,8 @@ void CrosswordGame::drawEasyButton() {
     glBindTexture(GL_TEXTURE_2D, EzPropTexture);
 
 
-    float propWidth = buttonWidth * 1.0f;
-    float propHeight = buttonHeight * 1.0f;
+    float propWidth = buttonWidth * 0.8f;
+    float propHeight = buttonHeight * 0.8f;
     float propX = buttonX + (buttonWidth - propWidth) / 2.0f;
     float propY = adjustedPlayButtonY + (buttonHeight - propHeight) / 2;
 
@@ -360,8 +395,8 @@ void CrosswordGame::drawHardButton() {
     glEnd();
 
     glBindTexture(GL_TEXTURE_2D, hardButtonTexture);
-    float propWidth = buttonWidth * 1.0f;
-    float propHeight = buttonHeight * 1.0f;
+    float propWidth = buttonWidth * 0.8f;
+    float propHeight = buttonHeight * 0.8f;
     float propX = buttonX + (buttonWidth - propWidth) / 2.0f;
     float propY = buttonY + (buttonHeight - propHeight) / 2;
 
@@ -501,7 +536,7 @@ void CrosswordGame::display() {
         drawHardButton();
         drawTopLeftProp();
         drawSettingsProp();
-        drawTopLeftProp();
+        
         drawSettingsProp();
         drawExitButton();
     }
@@ -511,11 +546,76 @@ void CrosswordGame::display() {
 
     }
 
+    else if (currentState == GameState::SIXTEEN) {
+        drawBackground();
+        drawExitButton();
+        drawTopLeftProp();
+    }
+    else if (currentState == GameState::TWENTY) {
+        drawBackground();
+        drawExitButton();
+        drawTopLeftProp();
+       
+    }
+    else if (currentState == GameState::HTP) {
+        drawBackground();
+        drawExitButton();
+        drawTopLeftProp();
+        drawMap();
+
+    }
+
     glutSwapBuffers();
 }
 
 // Handle mouse clicks for the play button and exit button
 void CrosswordGame::handleMouse(int button, int state, int x, int y) {
+    if (currentState == GameState::GAME && button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+
+        int normX = x;
+        int normY = windowHeight - y;  // Convert to OpenGL coordinates
+  
+        // Check if the easy button is clicked
+        if (normX >= buttonX && normX <= buttonX + buttonWidth &&
+            normY >= buttonY + buttonHeight + HTPverticaloffset && normY <= buttonY + buttonHeight * 2 + HTPverticaloffset) {
+            currentState = GameState::SIXTEEN;  // Transition to the crossword game
+            glutPostRedisplay();  // Ensure the screen refreshes after state change
+        }
+
+        // Check if the hard button is clicked
+        if (normX >= buttonX && normX <= buttonX + buttonWidth &&
+            normY >= buttonHY + buttonHeight + HTPverticaloffset && normY <= buttonHY + buttonHeight * 2 + HTPverticaloffset) {
+            currentState = GameState::TWENTY;  // Transition to the crossword game
+            glutPostRedisplay();  // Ensure the screen refreshes after state change
+        }
+
+        int exitButtonXx = windowWidth - exitButtonSize - 1300; // 20 pixels from the right
+        int exitButtonYy = windowHeight - exitButtonSize - 20;
+
+        if (normX >= exitButtonXx && normX <= exitButtonXx + exitButtonSize &&
+            normY >= exitButtonYy && normY <= exitButtonYy + exitButtonSize) {
+            currentState = GameState::HTP;  // Transition to the crossword game
+            glutPostRedisplay();  // Ensure the screen refreshes after state change
+        }
+
+        int exitButtonXxY = windowWidth - exitButtonSize - 1400; // 20 pixels from the right
+
+        if (normX >= exitButtonXxY && normX <= exitButtonXxY + exitButtonSize &&
+            normY >= exitButtonYy && normY <= exitButtonYy + exitButtonSize) {
+            currentState = GameState::INTRO;  // Transition to the crossword game
+            glutPostRedisplay();  // Ensure the screen refreshes after state change
+        }
+
+        // Check if the exit button is clicked
+        int exitButtonX = windowWidth - exitButtonSize - 20; // 20 pixels from the right
+        int exitButtonY = windowHeight - exitButtonSize - 20; // 20 pixels from the top
+
+        if (normX >= exitButtonX && normX <= exitButtonX + exitButtonSize &&
+            normY >= exitButtonY && normY <= exitButtonY + exitButtonSize) {
+            exit(0); // Exit the application
+        }
+    }
+
     if (currentState == GameState::INTRO && button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
         int mouseX = x;
         int mouseY = windowHeight - y;  // Convert to OpenGL coordinates
@@ -535,14 +635,78 @@ void CrosswordGame::handleMouse(int button, int state, int x, int y) {
             mouseY >= exitButtonY && mouseY <= exitButtonY + exitButtonSize) {
             exit(0); // Exit the application
         }
-        float propWidth = 100.0f;  // Adjust size if necessary
-        float propHeight = 100.0f; // Adjust size if necessary
-        float propX = windowWidth / 2 - 720.0f; // Adjust positioning based on window dimensions
-        float propY = windowHeight / 2 + 433.0f; // Adjust positioning based on window dimensions
-        // Check if the mouse click is within the bounds of topLeftProp
-        if (x >= propX && x <= propX + propWidth && y >= propY && y <= propY + propHeight) {
-            currentState = GameState::HOME;
+        // Check if the htp button is clicked
+        int exitButtonXx = windowWidth - exitButtonSize - 1300; // 20 pixels from the right
+
+        if (mouseX >= exitButtonXx && mouseX <= exitButtonXx + exitButtonSize &&
+            mouseY >= exitButtonY && mouseY <= exitButtonY + exitButtonSize) {
+            currentState = GameState::HTP;  // Transition to the crossword game
+            glutPostRedisplay();  // Ensure the screen refreshes after state change
         }
+    }
+    
+    if (currentState == GameState::SIXTEEN && button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+
+        int mouseX = x;
+        int mouseY = windowHeight - y;  // Convert to OpenGL coordinates
+        // Check if the exit button is clicked
+        int exitButtonX = windowWidth - exitButtonSize - 20; // 20 pixels from the right
+        int exitButtonY = windowHeight - exitButtonSize - 20; // 20 pixels from the top
+
+        if (mouseX >= exitButtonX && mouseX <= exitButtonX + exitButtonSize &&
+            mouseY >= exitButtonY && mouseY <= exitButtonY + exitButtonSize) {
+            exit(0); // Exit the application
+        }
+        int exitButtonXxY = windowWidth - exitButtonSize - 1400; // 20 pixels from the right
+
+        if (mouseX >= exitButtonXxY && mouseX <= exitButtonXxY + exitButtonSize &&
+            mouseY >= exitButtonY && mouseY <= exitButtonY + exitButtonSize) {
+            currentState = GameState::INTRO;  // Transition to the crossword game
+            glutPostRedisplay();  // Ensure the screen refreshes after state change
+        }
+    }
+    if (currentState == GameState::TWENTY && button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+
+        int mouseX = x;
+        int mouseY = windowHeight - y;  // Convert to OpenGL coordinates
+        // Check if the exit button is clicked
+        int exitButtonX = windowWidth - exitButtonSize - 20; // 20 pixels from the right
+        int exitButtonY = windowHeight - exitButtonSize - 20; // 20 pixels from the top
+
+        if (mouseX >= exitButtonX && mouseX <= exitButtonX + exitButtonSize &&
+            mouseY >= exitButtonY && mouseY <= exitButtonY + exitButtonSize) {
+            exit(0); // Exit the application
+        }
+        int exitButtonXxY = windowWidth - exitButtonSize - 1400; // 20 pixels from the right
+
+        if (mouseX >= exitButtonXxY && mouseX <= exitButtonXxY + exitButtonSize &&
+            mouseY >= exitButtonY && mouseY <= exitButtonY + exitButtonSize) {
+            currentState = GameState::INTRO;  // Transition to the crossword game
+            glutPostRedisplay();  // Ensure the screen refreshes after state change
+        }
+
+    }
+    if (currentState == GameState::HTP && button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+
+        int mouseX = x;
+        int mouseY = windowHeight - y;  // Convert to OpenGL coordinates
+        // Check if the exit button is clicked
+        int exitButtonX = windowWidth - exitButtonSize - 20; // 20 pixels from the right
+        int exitButtonY = windowHeight - exitButtonSize - 20; // 20 pixels from the top
+
+        if (mouseX >= exitButtonX && mouseX <= exitButtonX + exitButtonSize &&
+            mouseY >= exitButtonY && mouseY <= exitButtonY + exitButtonSize) {
+            exit(0); // Exit the application
+        }
+
+        int exitButtonXxY = windowWidth - exitButtonSize - 1400; // 20 pixels from the right
+
+        if (mouseX >= exitButtonXxY && mouseX <= exitButtonXxY + exitButtonSize &&
+            mouseY >= exitButtonY && mouseY <= exitButtonY + exitButtonSize) {
+            currentState = GameState::INTRO;  // Transition to the crossword game
+            glutPostRedisplay();  // Ensure the screen refreshes after state change
+        }
+
     }
 }
 
@@ -560,6 +724,16 @@ void displayWrapper() { gameInstance->display(); }
 void mouseWrapper(int button, int state, int x, int y) { gameInstance->handleMouse(button, state, x, y); }
 void idleWrapper() { gameInstance->update(); }
 
+
+void initSound() {
+    engine = createIrrKlangDevice();
+    if (!engine) {
+        std::cerr << "Error initializing sound engine!" << std::endl;
+        exit(-1);
+    }
+    engine->play2D("media/Optimistic-background-music.wav", true); // Play music in a loop
+}
+
 int main(int argc, char** argv) {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
@@ -573,11 +747,13 @@ int main(int argc, char** argv) {
 
     gameInstance = std::make_unique<CrosswordGame>(screenWidth, screenHeight);
     gameInstance->initOpenGL();
-
+    initSound();
     glutDisplayFunc(displayWrapper);
     glutMouseFunc(mouseWrapper);
     glutIdleFunc(idleWrapper);
 
-    glutMainLoop();
+    glutMainLoop(); // This loop now handles rendering and input
+    engine->drop(); // Cleanup sound engine (never reached due to infinite loop)
+   
     return 0;
 }
